@@ -1,39 +1,34 @@
 #include <iostream>
 
-#include "color.h"
-#include "vec3.h"
-#include "ray.h"
+#include "rtweekend.h"
 
-void print_progress(int bar_length, double progress)
+#include "hittable.h"
+#include "hittable_list.h"
+#include "sphere.h"
+
+void print_progress(int bar_length, double progress_ratio)
 {
-    std::clog << "\r[" << std::string(progress*bar_length, '=') << ">" << std::string(bar_length - progress*bar_length, ' ') << "]" << progress*100 << "%";
+    std::clog   << "\r[" << std::string(progress_ratio*bar_length, '=') << ">" // Print the arrow
+                << std::string(bar_length - progress_ratio*bar_length, ' ') << "]" // Print the spaces
+                << progress_ratio*100 << "%"; //Print the % done
 }
 
-bool hit_sphere(const point3& center, double radius, const ray& r)
+color ray_color(const ray& r, const hittable& world)
 {
-    vec3 V = center - r.origin();
+    hit_record rec;
 
-    double a = dot(r.direction(), r.direction());
-    double b = -2. * dot(V, r.direction());
-    double c = dot(V, V) - radius*radius;
-
-    return ((b*b - 4.*a*c) >= 0.);
-}
-
-color ray_color(const ray& r)
-{
-    point3 center = point3(0., 0., -1.);
-    double radius = 0.5;
-
-    if (hit_sphere(center, radius, r))
+    // If anything is hit, return a color
+    // depending on the hit normal
+    if(world.hit(r, 0, infinity, rec))
     {
-        return color(1., 0., 0.);
+        return 0.5 * color(rec.normal + color(1, 1, 1));
     }
 
+    // Else, draw the sky
     vec3 dir = unit(r.direction());
     double a = 0.5*dir.y() + 1.;
 
-    // Lerp from white to rgb(0.5, 0.7, 1), basically the skybox
+    // Lerp from white to rgb(0.5, 0.7, 1)
     color c = (1. - a)*vec3(1., 1., 1.) + a*vec3(.5, .7, 1.);
 
     return c;
@@ -64,15 +59,22 @@ int main()
     vec3 pixel_delta_v = viewport_v / IMAGE_HEIGHT; // Same but for Y
 
     /* Camera point
-        MINUS focal length  in Z
-        MINUS half vector U in X
-        MINUS half vector V in Y
+        x= -(focal length)
+        y= -(half vector U)
+        z= -(half vector V)
     */
     vec3 viewport_upper_left = CAMERA_CENTER - vec3(0., 0., FOCAL_LENGTH)
                                 - viewport_u/2 - viewport_v/2;
 
     // The top left ray origin, moved half a pixel width&height from viewport_upper_left
     vec3 pixel00_loc = viewport_upper_left + 0.5*(pixel_delta_u + pixel_delta_v);
+
+
+    // World
+    hittable_list world;
+
+    world.add(make_shared<sphere>(point3(0, 0, -1), 0.5));
+    world.add(make_shared<sphere>(point3(0, -100.5, -1), 100));
 
 
     // Let's go rendering yay
@@ -93,10 +95,12 @@ int main()
 
             ray r = ray(CAMERA_CENTER, ray_dir);
 
-            color pixel_color = ray_color(r);
+            color pixel_color = ray_color(r, world);
             write_color(std::cout, pixel_color);
         }
     }
+
+    std::cout << std::endl;
 
     return 0;
 }
