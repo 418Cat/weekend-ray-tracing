@@ -9,7 +9,7 @@ class sphere : public hittable
         sphere(const point3& p, double r) : center(p), radius(std::fmax(0, r)) {};
 
         // See "./maths/Sphere intersect.pdf"
-        bool hit(const ray& r, double t_mix, double t_max, hit_record& h_r) const override
+        bool hit(const ray& r, interval ray_interval, hit_record& h_r) const override
         {
             const vec3 V = center - r.origin();
 
@@ -40,12 +40,12 @@ class sphere : public hittable
             double root = (h - sqrt_d)/a;
 
             // If first root is outside of range [t_min, t_max]
-            if(root <= t_mix || root >= t_max)
+            if(!ray_interval.surrounds(root))
             {
                 // Try second root
                 root = (h + sqrt_d)/a;
 
-                if(root <= t_mix || root >= t_max)
+                if(!ray_interval.surrounds(root))
                 {
                     //If both roots are outside
                     return false;

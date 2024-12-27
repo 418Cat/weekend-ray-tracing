@@ -24,11 +24,11 @@ class hittable_list : public hittable
             objects.push_back(h);
         }
 
-        bool hit(const ray& r, double t_min, double t_max, hit_record& h_r) const override
+        bool hit(const ray& r, interval ray_interval, hit_record& h_r) const override
         {
             hit_record temp_rec;
             bool hit_anything = false;
-            double closest_so_far = t_max;
+            double closest_so_far = ray_interval.max;
 
             for(const auto& obj : objects)
             {
@@ -38,7 +38,7 @@ class hittable_list : public hittable
                  * further, less computations will
                  * be done in the hit() function
                  */
-                if(obj->hit(r, t_min, closest_so_far, temp_rec))
+                if(obj->hit(r, interval(ray_interval.min, closest_so_far), temp_rec))
                 {
                     hit_anything = true;
                     closest_so_far = temp_rec.t;
