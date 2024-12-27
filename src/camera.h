@@ -8,52 +8,45 @@ class camera
     public:
               double    ASPECT_RATIO    = 16./9.;
               int       IMAGE_WIDTH     = 300;
+              int       SAMPLE_PER_PIX  = 20;
 
         void render(const hittable& world)
         {
+            /**
+             * Compute values dependent on
+             * variables set by user
+             */
             initialize();
 
+            // PPM File header
             std::cout << "P3\n" << IMAGE_WIDTH << ' ' << IMAGE_HEIGHT << "\n255\n";
 
             for(float y = 0.; y < IMAGE_HEIGHT; y++)
             {
-                print_progress(30, y / IMAGE_HEIGHT);
-
                 for(float x = 0.; x < IMAGE_WIDTH; x++)
                 {
+                    // Center point of current pixel
                     point3 pixel_center = pixel00_loc
                                         + x*pixel_delta_u
                                         + y*pixel_delta_v;
 
+                    color anti_aliased_color;
 
-                    /*
-                     * POC to get anti-aliasing to work without
-                     * reading the chapter on it from the book;
-                     * Taking 4 different samples per pixel and
-                     * averaging the color into one
+                    for(int i = 0; i < SAMPLE_PER_PIX; i++)
+                    {
+                        // Add color computed in said point
+                        anti_aliased_color += ray_color(get_ray(x, y), world);
+                    }
+                    /**
+                     * Multiply by the inverse of samples per pixels
+                     * to get the average of all colors in [0, 1[
                      */
-                    point3 pix00 = pixel_center - pixel_delta_u/4 - pixel_delta_v/4;
-                    point3 pix10 = pixel_center + pixel_delta_u/4 - pixel_delta_v/4;
-                    point3 pix11 = pixel_center + pixel_delta_u/4 + pixel_delta_v/4;
-                    point3 pix01 = pixel_center - pixel_delta_u/4 + pixel_delta_v/4;
-
-                    color anti_aliased_color = (
-                        ray_color(ray(CAMERA_CENTER, pix00 - CAMERA_CENTER), world) +
-                        ray_color(ray(CAMERA_CENTER, pix10 - CAMERA_CENTER), world) +
-                        ray_color(ray(CAMERA_CENTER, pix11 - CAMERA_CENTER), world) +
-                        ray_color(ray(CAMERA_CENTER, pix01 - CAMERA_CENTER), world)) / 4;
-                    
-                    write_color(std::cout, anti_aliased_color);
-                        
-
-                    /*vec3 ray_dir = pixel_center - CAMERA_CENTER;
-                    ray r = ray(CAMERA_CENTER, ray_dir);
-                    color pixel_color = ray_color(r, world);
-                    write_color(std::cout, pixel_color);*/
+                    write_color(std::cout, anti_aliased_color * INVERSE_SAMPLES);
                 }
+                print_progress(30, y / IMAGE_HEIGHT);
             }
 
-            std::cout << std::endl;
+            std::clog << std::endl;
         }
     
     private:
@@ -72,22 +65,17 @@ class camera
               vec3      viewport_upper_left;
               vec3      pixel00_loc;
 
+              double    INVERSE_SAMPLES;
+
         void initialize()
         {
+            IMAGE_HEIGHT    = int(double(IMAGE_WIDTH) / double(ASPECT_RATIO)); // Height divided by aspect ratio
 
             /**
-             *      IMAGE
+             * Get the real aspect ratio to avoid rounding
+             * problems for the ideal aspect ratio
              */
-            
-            IMAGE_HEIGHT    = int(double(IMAGE_WIDTH) / double(ASPECT_RATIO));
-
-            /**
-             *      CAMERA
-             */
-            
             VIEWPORT_WIDTH  = VIEWPORT_HEIGHT * (double(IMAGE_WIDTH)/IMAGE_HEIGHT);
-            
-
 
             viewport_u = vec3(VIEWPORT_WIDTH, 0., 0.); // Vector which goes from left of viewport to right
             viewport_v = vec3(0., -VIEWPORT_HEIGHT, 0.); // Same but for Y, poiting downwards
@@ -104,6 +92,29 @@ class camera
 
             // The top left ray origin, moved half a pixel width&height from viewport_upper_left
             pixel00_loc = viewport_upper_left + 0.5*(pixel_delta_u + pixel_delta_v);
+
+            INVERSE_SAMPLES = 1./SAMPLE_PER_PIX;
+        }
+
+        /**
+         * Ray with random sub-pixel offset
+         * from the pixel center point
+         */
+        ray get_ray(int x, int y)
+        {
+            vec3 offset = sample_square();
+
+            point3 pixel_point = pixel00_loc                         +
+                                 ((x + offset.x()) * pixel_delta_u   +
+                                  (y + offset.y()) * pixel_delta_v);
+            
+            return ray(CAMERA_CENTER, pixel_point-CAMERA_CENTER);
+        }
+
+        // Random point in the [-0.5, -0.5] <-> [0.5, 0.5] unit square
+        vec3 sample_square() const
+        {
+            return vec3(random_double()-.5, random_double()-.5, 0);
         }
 
         color ray_color(const ray& r, const hittable& world) const
@@ -114,7 +125,8 @@ class camera
             // depending on the hit normal
             if(world.hit(r, interval(0, infinity), rec))
             {
-                return 0.5 * color(rec.normal + color(1, 1, 1));
+                vec3 ray_direction = random_on_hemisphere(rec.normal);
+                return 0.7 * ray_color(ray(rec.p, ray_direction), world);
             }
 
             // Else, draw the sky

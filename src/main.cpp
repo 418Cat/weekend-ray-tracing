@@ -7,7 +7,7 @@
 #include "sphere.h"
 #include "camera.h"
 
-int main()
+int main(int argc, char* argv[])
 {
     // World
     hittable_list world;
@@ -19,7 +19,8 @@ int main()
     camera cam;
 
     cam.ASPECT_RATIO = 16.0 / 9.0;
-    cam.IMAGE_WIDTH = 400;
+    cam.IMAGE_WIDTH = 500;
+    cam.SAMPLE_PER_PIX = 100;
 
     cam.render(world);
 
