@@ -9,6 +9,7 @@ class camera
               double    ASPECT_RATIO    = 16./9.;
               int       IMAGE_WIDTH     = 300;
               int       SAMPLE_PER_PIX  = 20;
+              int       MAX_RAYS_DEPTH  = 10;
 
         void render(const hittable& world)
         {
@@ -35,7 +36,7 @@ class camera
                     for(int i = 0; i < SAMPLE_PER_PIX; i++)
                     {
                         // Add color computed in said point
-                        anti_aliased_color += ray_color(get_ray(x, y), world);
+                        anti_aliased_color += ray_color(get_ray(x, y), MAX_RAYS_DEPTH, world);
                     }
                     /**
                      * Multiply by the inverse of samples per pixels
@@ -117,16 +118,19 @@ class camera
             return vec3(random_double()-.5, random_double()-.5, 0);
         }
 
-        color ray_color(const ray& r, const hittable& world) const
+        color ray_color(const ray& r, int depth, const hittable& world) const
         {
+            if(depth <= 0) return color(0, 0, 0);
+
+
             hit_record rec;
 
             // If anything is hit, return a color
             // depending on the hit normal
-            if(world.hit(r, interval(0, infinity), rec))
+            if(world.hit(r, interval(0.001, infinity), rec))
             {
-                vec3 ray_direction = random_on_hemisphere(rec.normal);
-                return 0.7 * ray_color(ray(rec.p, ray_direction), world);
+                vec3 ray_direction = rec.normal + random_unit_vector();
+                return 0.5 * ray_color(ray(rec.p, ray_direction), depth-1, world);
             }
 
             // Else, draw the sky
@@ -134,7 +138,7 @@ class camera
             double a = 0.5*dir.y() + 1.;
 
             // Lerp from white to rgb(0.5, 0.7, 1)
-            color c = (1. - a)*vec3(1., 1., 1.) + a*vec3(.5, .7, 1.);
+            color c = (1. - a)*vec3(1., 1., 1.) + a*vec3(.5, .7, 1);
 
             return c;
         }

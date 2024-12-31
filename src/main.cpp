@@ -21,6 +21,7 @@ int main(int argc, char* argv[])
     cam.ASPECT_RATIO = 16.0 / 9.0;
     cam.IMAGE_WIDTH = 500;
     cam.SAMPLE_PER_PIX = 100;
+    cam.MAX_RAYS_DEPTH = 10;
 
     cam.render(world);
 
