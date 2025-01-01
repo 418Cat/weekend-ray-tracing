@@ -6,7 +6,7 @@
 class sphere : public hittable
 {
     public:
-        sphere(const point3& p, double r) : center(p), radius(std::fmax(0, r)) {};
+        sphere(const point3& p, double r, shared_ptr<material> mat) : center(p), radius(std::fmax(0, r)), mat(mat) {};
 
         // See "./maths/Sphere intersect.pdf"
         bool hit(const ray& r, interval ray_interval, hit_record& h_r) const override
@@ -58,6 +58,7 @@ class sphere : public hittable
             vec3 outward_normal = (center - h_r.p) / radius;
 
             h_r.set_face_normal(r, outward_normal);
+            h_r.mat = mat;
 
             return true;
         }
@@ -66,6 +67,7 @@ class sphere : public hittable
     private:
         point3 center;
         double radius;
+        shared_ptr<material> mat;
 
 };
 
