@@ -166,4 +166,25 @@ inline vec3 reflect(const vec3& v, const vec3& n)
     return v - 2*(dot(v, n))*n;
 }
 
+// See "./maths/refraction.pdf"
+inline vec3 refract(const vec3& v, const vec3& n, double n1_over_n2)
+{
+    vec3 v_unit = unit(v);
+
+    // is negative since v is incident to the surface normal
+    double dot_vUnit_n = dot(v_unit, n); 
+
+    // sin(theta) = x / h, with h = 1
+    double theta = acos(dot_vUnit_n);
+
+    // min and max to keep the cosine between -1 and 1, else causes asin() error
+    double sin_theta_prime = std::min(std::max(n1_over_n2*sin(theta), -1.), 1.);
+    double cos_theta_prime = cos(asin(sin_theta_prime));
+
+    // u = sin*xVector - cos*nVector
+    vec3 u = sin_theta_prime*unit(v_unit - (n*dot_vUnit_n)) - cos_theta_prime*n;
+
+    return u;
+}
+
 #endif

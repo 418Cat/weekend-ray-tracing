@@ -44,20 +44,48 @@ class lambertian: public material
 class metal: public material
 {
     public:
-        metal(const color& albedo) : albedo(albedo) {}
+        metal(const color& albedo, double fuzziness) : albedo(albedo), fuzziness(fuzziness) {}
 
         bool scatter(const ray& r_in, const hit_record& h_r, color& attenuation, ray& scattered)
         const override
         {
-            vec3 reflected = reflect(r_in.direction(), h_r.normal);
+            vec3 reflected = unit(reflect(r_in.direction(), h_r.normal));
+
+            reflected += fuzziness*random_unit_vector();
+
             scattered = ray(h_r.p, reflected);
             attenuation = albedo;
+
+            return dot(h_r.normal, reflected) > 0;
+        }
+    
+    private:
+        color albedo;
+        double fuzziness;
+};
+
+class dielectric: public material
+{
+    public:
+        dielectric(double refraction_index): refraction_index(refraction_index) {}
+
+        bool scatter(const ray& r_in, const hit_record& h_r, color& attenuation, ray& scattered)
+        const override
+        {
+            attenuation = color(1, 1, 1);
+
+            // Change the refraction index if the ray enter/exits the material
+            double ri = h_r.front_face ? refraction_index : 1./refraction_index;
+
+            vec3 refracted = refract(r_in.direction(), h_r.normal, ri);
+
+            scattered = ray(h_r.p, refracted);
 
             return true;
         }
     
     private:
-        color albedo;
+        double refraction_index;
 };
 
 
