@@ -10,6 +10,7 @@ class camera
               int       IMAGE_WIDTH     = 300;
               int       SAMPLE_PER_PIX  = 20;
               int       MAX_RAYS_DEPTH  = 10;
+              double    VERTICAL_FOV    = 90.;
 
         void render(const hittable& world)
         {
@@ -54,7 +55,7 @@ class camera
               int       IMAGE_HEIGHT;
 
         const double    FOCAL_LENGTH    = 1.0;
-        const double    VIEWPORT_HEIGHT = 2.;
+              double    VIEWPORT_HEIGHT;
               double    VIEWPORT_WIDTH;
         const point3    CAMERA_CENTER   = vec3(0., 0., 0.);
 
@@ -71,6 +72,8 @@ class camera
         void initialize()
         {
             IMAGE_HEIGHT    = int(double(IMAGE_WIDTH) / double(ASPECT_RATIO)); // Height divided by aspect ratio
+
+            VIEWPORT_HEIGHT = 2.* tan(degrees_to_radians(VERTICAL_FOV) / 2.) * FOCAL_LENGTH; 
 
             /**
              * Get the real aspect ratio to avoid rounding
