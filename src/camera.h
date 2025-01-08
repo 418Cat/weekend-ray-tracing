@@ -6,11 +6,14 @@
 class camera
 {
     public:
-              double    ASPECT_RATIO    = 16./9.;
-              int       IMAGE_WIDTH     = 300;
-              int       SAMPLE_PER_PIX  = 20;
-              int       MAX_RAYS_DEPTH  = 10;
-              double    VERTICAL_FOV    = 90.;
+        double    ASPECT_RATIO    = 16./9.;
+        int       IMAGE_WIDTH     = 300;
+        int       SAMPLE_PER_PIX  = 20;
+        int       MAX_RAYS_DEPTH  = 10;
+        double    VERTICAL_FOV    = 90.;
+        vec3      LOOK_AT         = vec3(0., 0., -1.);
+        vec3      LOOK_FROM       = vec3(0., 0., 0.);
+        vec3      V_UP            = vec3(0., 1., 0.);
 
         void render(const hittable& world)
         {
@@ -52,37 +55,47 @@ class camera
         }
     
     private:
-              int       IMAGE_HEIGHT;
+        int       IMAGE_HEIGHT;
 
-        const double    FOCAL_LENGTH    = 1.0;
-              double    VIEWPORT_HEIGHT;
-              double    VIEWPORT_WIDTH;
-        const point3    CAMERA_CENTER   = vec3(0., 0., 0.);
+        double    FOCAL_LENGTH;
+        double    VIEWPORT_HEIGHT;
+        double    VIEWPORT_WIDTH;
+        point3    CAMERA_CENTER;
 
-              vec3      viewport_u;
-              vec3      viewport_v;
-              vec3      pixel_delta_u;
-              vec3      pixel_delta_v;
+        vec3 U, V, W;
 
-              vec3      viewport_upper_left;
-              vec3      pixel00_loc;
+        vec3      viewport_u;
+        vec3      viewport_v;
+        vec3      pixel_delta_u;
+        vec3      pixel_delta_v;
 
-              double    INVERSE_SAMPLES;
+        vec3      viewport_upper_left;
+        vec3      pixel00_loc;
+
+        double    INVERSE_SAMPLES;
 
         void initialize()
         {
             IMAGE_HEIGHT    = int(double(IMAGE_WIDTH) / double(ASPECT_RATIO)); // Height divided by aspect ratio
 
-            VIEWPORT_HEIGHT = 2.* tan(degrees_to_radians(VERTICAL_FOV) / 2.) * FOCAL_LENGTH; 
+            CAMERA_CENTER = LOOK_FROM;
 
+            W = LOOK_FROM - LOOK_AT;
+            FOCAL_LENGTH = W.length();
+            W /= FOCAL_LENGTH;
+
+            U = unit(cross(V_UP, W));
+            V = cross(W, U);
+
+            VIEWPORT_HEIGHT = 2.* tan(degrees_to_radians(VERTICAL_FOV) / 2.) * FOCAL_LENGTH;
             /**
              * Get the real aspect ratio to avoid rounding
              * problems for the ideal aspect ratio
              */
             VIEWPORT_WIDTH  = VIEWPORT_HEIGHT * (double(IMAGE_WIDTH)/IMAGE_HEIGHT);
 
-            viewport_u = vec3(VIEWPORT_WIDTH, 0., 0.); // Vector which goes from left of viewport to right
-            viewport_v = vec3(0., -VIEWPORT_HEIGHT, 0.); // Same but for Y, poiting downwards
+            viewport_u = U * VIEWPORT_WIDTH; // Vector which goes from left of viewport to right
+            viewport_v = -V * VIEWPORT_HEIGHT; // Same but for Y, poiting downwards
             pixel_delta_u = viewport_u / IMAGE_WIDTH; // Size X of one pixel in viewport
             pixel_delta_v = viewport_v / IMAGE_HEIGHT; // Same but for Y
 
@@ -91,7 +104,7 @@ class camera
                 y= -(half vector U)
                 z= -(half vector V)
             */
-            viewport_upper_left = CAMERA_CENTER - vec3(0., 0., FOCAL_LENGTH)
+            viewport_upper_left = CAMERA_CENTER - W * FOCAL_LENGTH
                                         - viewport_u/2 - viewport_v/2;
 
             // The top left ray origin, moved half a pixel width&height from viewport_upper_left
