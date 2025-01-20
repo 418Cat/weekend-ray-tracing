@@ -148,6 +148,19 @@ inline vec3 random_unit_vector()
     }
 }
 
+inline vec3 random_in_unit_circle()
+{
+    while(true)
+    {
+        vec3 v = vec3(random_double(-1, 1), random_double(-1, 1), 0.);
+
+        if(v.length_squared() < 1)
+        {
+            return v;
+        }
+    }
+}
+
 inline vec3 random_on_hemisphere(const vec3& normal)
 {
     vec3 on_unit_sphere = random_unit_vector();
@@ -158,7 +171,6 @@ inline vec3 random_on_hemisphere(const vec3& normal)
     }
 
     return -on_unit_sphere;
-
 }
 
 inline vec3 reflect(const vec3& v, const vec3& n)

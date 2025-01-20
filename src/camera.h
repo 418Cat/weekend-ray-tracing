@@ -6,14 +6,16 @@
 class camera
 {
     public:
-        double    ASPECT_RATIO    = 16./9.;
-        int       IMAGE_WIDTH     = 300;
-        int       SAMPLE_PER_PIX  = 20;
-        int       MAX_RAYS_DEPTH  = 10;
-        double    VERTICAL_FOV    = 90.;
-        vec3      LOOK_AT         = vec3(0., 0., -1.);
-        vec3      LOOK_FROM       = vec3(0., 0., 0.);
-        vec3      V_UP            = vec3(0., 1., 0.);
+        double    aspect_ratio    = 16./9.;
+        int       image_width     = 300;
+        int       sample_per_pix  = 20;
+        int       max_ray_depth  = 10;
+        double    vertical_fov    = 90.;
+        vec3      look_at         = vec3(0., 0., -1.);
+        vec3      look_from       = vec3(0., 0., 0.);
+        vec3      v_up            = vec3(0., 1., 0.);
+        double    defocus_angle   = 0;
+        double    focus_distance  = 1.;
 
         void render(const hittable& world)
         {
@@ -24,11 +26,11 @@ class camera
             initialize();
 
             // PPM File header
-            std::cout << "P3\n" << IMAGE_WIDTH << ' ' << IMAGE_HEIGHT << "\n255\n";
+            std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
 
-            for(float y = 0.; y < IMAGE_HEIGHT; y++)
+            for(float y = 0.; y < image_height; y++)
             {
-                for(float x = 0.; x < IMAGE_WIDTH; x++)
+                for(float x = 0.; x < image_width; x++)
                 {
                     // Center point of current pixel
                     point3 pixel_center = pixel00_loc
@@ -37,32 +39,32 @@ class camera
 
                     color anti_aliased_color;
 
-                    for(int i = 0; i < SAMPLE_PER_PIX; i++)
+                    for(int i = 0; i < sample_per_pix; i++)
                     {
                         // Add color computed in said point
-                        anti_aliased_color += ray_color(get_ray(x, y), MAX_RAYS_DEPTH, world);
+                        anti_aliased_color += ray_color(get_ray(x, y), max_ray_depth, world);
                     }
                     /**
                      * Multiply by the inverse of samples per pixels
                      * to get the average of all colors in [0, 1[
                      */
-                    write_color(std::cout, anti_aliased_color * INVERSE_SAMPLES);
+                    write_color(std::cout, anti_aliased_color * inverse_samples);
                 }
-                print_progress(30, y / IMAGE_HEIGHT);
+                print_progress(30, y / image_height);
             }
 
             std::clog << std::endl;
         }
     
     private:
-        int       IMAGE_HEIGHT;
+        int       image_height;
 
-        double    FOCAL_LENGTH;
-        double    VIEWPORT_HEIGHT;
-        double    VIEWPORT_WIDTH;
-        point3    CAMERA_CENTER;
+        double    focal_length;
+        double    viewport_height;
+        double    viewport_width;
+        point3    camera_center;
 
-        vec3 U, V, W;
+        vec3 u, v, w;
 
         vec3      viewport_u;
         vec3      viewport_v;
@@ -72,45 +74,54 @@ class camera
         vec3      viewport_upper_left;
         vec3      pixel00_loc;
 
-        double    INVERSE_SAMPLES;
+        double    inverse_samples;
+
+        vec3      defocus_disk_u;
+        vec3      defocus_disk_v;
 
         void initialize()
         {
-            IMAGE_HEIGHT    = int(double(IMAGE_WIDTH) / double(ASPECT_RATIO)); // Height divided by aspect ratio
+            image_height = int(double(image_width) / double(aspect_ratio)); // Height divided by aspect ratio
 
-            CAMERA_CENTER = LOOK_FROM;
+            camera_center = look_from;
 
-            W = LOOK_FROM - LOOK_AT;
-            FOCAL_LENGTH = W.length();
-            W /= FOCAL_LENGTH;
+            w = look_from - look_at;
+            focal_length = w.length();
+            w /= focal_length;
 
-            U = unit(cross(V_UP, W));
-            V = cross(W, U);
+            u = unit(cross(v_up, w));
+            v = cross(w, u);
 
-            VIEWPORT_HEIGHT = 2.* tan(degrees_to_radians(VERTICAL_FOV) / 2.) * FOCAL_LENGTH;
+            auto theta = degrees_to_radians(vertical_fov);
+            auto h = std::tan(theta/2);
+            viewport_height = 2.* h * focus_distance;
             /**
              * Get the real aspect ratio to avoid rounding
              * problems for the ideal aspect ratio
              */
-            VIEWPORT_WIDTH  = VIEWPORT_HEIGHT * (double(IMAGE_WIDTH)/IMAGE_HEIGHT);
+            viewport_width  = viewport_height * (double(image_width)/image_height);
 
-            viewport_u = U * VIEWPORT_WIDTH; // Vector which goes from left of viewport to right
-            viewport_v = -V * VIEWPORT_HEIGHT; // Same but for Y, poiting downwards
-            pixel_delta_u = viewport_u / IMAGE_WIDTH; // Size X of one pixel in viewport
-            pixel_delta_v = viewport_v / IMAGE_HEIGHT; // Same but for Y
+            viewport_u = u * viewport_width; // Vector which goes from left of viewport to right
+            viewport_v = -v * viewport_height; // Same but for Y, poiting downwards
+            pixel_delta_u = viewport_u / image_width; // Size X of one pixel in viewport
+            pixel_delta_v = viewport_v / image_height; // Same but for Y
 
             /* Camera point
                 x= -(focal length)
                 y= -(half vector U)
                 z= -(half vector V)
             */
-            viewport_upper_left = CAMERA_CENTER - W * FOCAL_LENGTH
+            viewport_upper_left = camera_center - (w * focal_length)
                                         - viewport_u/2 - viewport_v/2;
 
             // The top left ray origin, moved half a pixel width&height from viewport_upper_left
             pixel00_loc = viewport_upper_left + 0.5*(pixel_delta_u + pixel_delta_v);
 
-            INVERSE_SAMPLES = 1./SAMPLE_PER_PIX;
+            inverse_samples = 1./sample_per_pix;
+
+            double defocus_radius = focus_distance * std::tan(degrees_to_radians(defocus_angle / 2.));
+            defocus_disk_u = u * defocus_radius;
+            defocus_disk_v = v * defocus_radius;
         }
 
         /**
@@ -124,14 +135,22 @@ class camera
             point3 pixel_point = pixel00_loc                         +
                                  ((x + offset.x()) * pixel_delta_u   +
                                   (y + offset.y()) * pixel_delta_v);
-            
-            return ray(CAMERA_CENTER, pixel_point-CAMERA_CENTER);
+
+            point3 ray_origin = defocus_angle <= 0 ? camera_center : defocus_disk_sample();
+
+            return ray(ray_origin, pixel_point-ray_origin);
         }
 
         // Random point in the [-0.5, -0.5] <-> [0.5, 0.5] unit square
         vec3 sample_square() const
         {
             return vec3(random_double()-.5, random_double()-.5, 0);
+        }
+
+        point3 defocus_disk_sample()
+        {
+            point3 on_unit = random_in_unit_circle();
+            return camera_center + defocus_disk_u*on_unit[0] + defocus_disk_v*on_unit[1];
         }
 
         color ray_color(const ray& r, int depth, const hittable& world) const
